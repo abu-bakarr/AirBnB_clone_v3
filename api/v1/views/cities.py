@@ -1,65 +1,59 @@
 #!/usr/bin/python3
-"""State objects that handles all default RestFul API actions"""
-from models.city import City
-from models import storage
+"""Module for index file"""
+from flask import jsonify, abort, request, make_response
 from api.v1.views import app_views
-from flask import abort, jsonify, request, make_response
+from models import storage
+from models.city import City
 from models.state import State
 
 
-@app_views.route('/states/<string:state_id>/cities', methods=['GET'],
+@app_views.route('/states/<string:state_id>/cities',
                  strict_slashes=False)
-def get_cities(state_id):
-    """
-    Retrieves the list of all City objects
-    """
-    state = storage.get("State", state_id)
-    if state is None:
-        abort(404)
-    cities = []
-    for city in state.cities:
-        cities.append(city.to_dict())
-    return jsonify(cities)
+def get_cities_from_state(state_id):
+    """Endpoint to get all city objects from a state"""
+    state = storage.get(State, state_id)
+    if state is not None:
+        response = []
+        for city in state.cities:
+            response.append(city.to_dict())
+        return jsonify(response)
+    abort(404)
 
 
-@app_views.route('/cities/<string:city_id>', methods=['GET'],
+@app_views.route('/cities/<string:city_id>',
                  strict_slashes=False)
 def get_city(city_id):
-    """
-    GET method for City
-    """
-    city = storage.get("City", city_id)
-    if city is None:
-        abort(404)
-    return jsonify(city.to_dict())
+    """Endpoint to get a city object"""
+    city = storage.get(City, city_id)
+    if city is not None:
+        return jsonify(city.to_dict())
+    abort(404)
 
 
-@app_views.route('/cities/<string:city_id>', methods=['DELETE'],
-                 strict_slashes=False)
+@app_views.route('/cities/<string:city_id>',
+                 strict_slashes=False,
+                 methods=['DELETE'])
 def delete_city(city_id):
-    """
-    Delete method for city based on city_id
-    """
-    city = storage.get("City", city_id)
-    if city is None:
-        abort(404)
-    city.delete()
-    storage.save()
-    return (jsonify({}))
+    """Endpoint to delete a city object"""
+    city = storage.get(City, city_id)
+    if city is not None:
+        storage.delete(city)
+        storage.save()
+        return jsonify({})
+    abort(404)
 
 
-@app_views.route('/states/<string:state_id>/cities/', methods=['POST'],
-                 strict_slashes=False)
+@app_views.route('/states/<string:state_id>/cities',
+                 strict_slashes=False,
+                 methods=['POST'])
 def post_city(state_id):
-    """
-    POST method for city
-    """
-    state = storage.get("State", state_id)
+    """Endpoint to post a city object"""
+    state = storage.get(State, state_id)
     if state is None:
         abort(404)
-    if not request.get_json():
+    if not request.json:
         return make_response(jsonify({'error': 'Not a JSON'}), 400)
-    if 'name' not in request.get_json():
+    if 'name' not in request.json:
         return make_response(jsonify({'error': 'Missing name'}), 400)
     kwargs = request.get_json()
     kwargs['state_id'] = state_id
@@ -68,19 +62,16 @@ def post_city(state_id):
     return make_response(jsonify(city.to_dict()), 201)
 
 
-@app_views.route('/cities/<string:city_id>', methods=['PUT'],
-                 strict_slashes=False)
+@app_views.route('/cities/<string:city_id>',
+                 strict_slashes=False,
+                 methods=['PUT'])
 def put_city(city_id):
-    """
-    PUT method for City
-    """
-    city = storage.get("City", city_id)
+    """Endpoint to put a city object"""
+    city = storage.get(City, city_id)
     if city is None:
         abort(404)
-    if not request.get_json():
+    if not request.json:
         return make_response(jsonify({'error': 'Not a JSON'}), 400)
-    for key, value in request.get_json().items():
-        if key not in ['id', 'state_id', 'created_at', 'updated_at']:
-            setattr(city, key, value)
+    city.name = request.json['name']
     city.save()
-    return jsonify(city.to_dict())
+    return make_response(jsonify(city.to_dict()), 200)
